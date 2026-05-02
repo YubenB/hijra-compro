@@ -10,6 +10,9 @@ const testimonialNext = document.querySelector("[data-testimonial-next]");
 const testimonialDots = [
   ...document.querySelectorAll("[data-testimonial-dot]"),
 ];
+const resellerCarousel = document.querySelector("[data-reseller-carousel]");
+const resellerTrack = document.querySelector("[data-reseller-track]");
+const resellerDotsContainer = document.querySelector("[data-reseller-dots]");
 
 const closeMenu = () => {
   if (!navbar || !hamburger) {
@@ -159,4 +162,144 @@ if (testimonialTrack && testimonialDots.length) {
   });
 
   renderTestimonial(0);
+}
+
+if (resellerCarousel && resellerTrack && resellerDotsContainer) {
+  const cards = [...resellerTrack.querySelectorAll(".reseller-store-card")];
+  const reducedMotionQuery = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  );
+
+  let resellerDots = [];
+  let currentStoreIndex = 0;
+  let autoAdvanceId = 0;
+
+  const getVisibleStoreCount = () => {
+    if (window.matchMedia("(max-width: 640px)").matches) {
+      return 1;
+    }
+
+    if (window.matchMedia("(max-width: 920px)").matches) {
+      return 2;
+    }
+
+    return 4;
+  };
+
+  const getMaxStoreIndex = () =>
+    Math.max(0, cards.length - getVisibleStoreCount());
+
+  const stopAutoAdvance = () => {
+    if (!autoAdvanceId) {
+      return;
+    }
+
+    window.clearInterval(autoAdvanceId);
+    autoAdvanceId = 0;
+  };
+
+  const renderResellerDots = () => {
+    const stepCount = getMaxStoreIndex() + 1;
+
+    if (resellerDots.length === stepCount) {
+      return;
+    }
+
+    resellerDotsContainer.innerHTML = "";
+    resellerDots = Array.from({ length: stepCount }, (_, stepIndex) => {
+      const dot = document.createElement("button");
+
+      dot.type = "button";
+      dot.className = "reseller-store-dot";
+      dot.setAttribute(
+        "aria-label",
+        `Lihat slide mitra reseller ${stepIndex + 1}`,
+      );
+      dot.addEventListener("click", () => {
+        renderReseller(stepIndex);
+        startAutoAdvance();
+      });
+      resellerDotsContainer.appendChild(dot);
+
+      return dot;
+    });
+  };
+
+  const renderReseller = (index) => {
+    renderResellerDots();
+
+    const visibleStoreCount = getVisibleStoreCount();
+    const maxStoreIndex = getMaxStoreIndex();
+    const normalizedIndex =
+      maxStoreIndex === 0 ? 0 : Math.min(Math.max(index, 0), maxStoreIndex);
+    const targetCard = cards[normalizedIndex];
+
+    currentStoreIndex = normalizedIndex;
+    resellerTrack.style.transform = `translateX(-${targetCard?.offsetLeft ?? 0}px)`;
+
+    cards.forEach((card, cardIndex) => {
+      const isVisible =
+        cardIndex >= normalizedIndex &&
+        cardIndex < normalizedIndex + visibleStoreCount;
+
+      card.classList.toggle("is-active", isVisible);
+      card.setAttribute("aria-hidden", String(!isVisible));
+    });
+
+    resellerDots.forEach((dot, dotIndex) => {
+      const isActive = dotIndex === normalizedIndex;
+
+      dot.classList.toggle("is-active", isActive);
+      dot.setAttribute("aria-pressed", String(isActive));
+    });
+
+    resellerDotsContainer.hidden = resellerDots.length < 2;
+  };
+
+  const startAutoAdvance = () => {
+    stopAutoAdvance();
+
+    if (reducedMotionQuery.matches || getMaxStoreIndex() === 0) {
+      return;
+    }
+
+    autoAdvanceId = window.setInterval(() => {
+      const maxStoreIndex = getMaxStoreIndex();
+      const nextIndex =
+        currentStoreIndex >= maxStoreIndex ? 0 : currentStoreIndex + 1;
+
+      renderReseller(nextIndex);
+    }, 2800);
+  };
+
+  const handleResellerResize = () => {
+    currentStoreIndex = Math.min(currentStoreIndex, getMaxStoreIndex());
+    renderReseller(currentStoreIndex);
+    startAutoAdvance();
+  };
+
+  resellerCarousel.classList.add("is-ready");
+  resellerCarousel.addEventListener("mouseenter", stopAutoAdvance);
+  resellerCarousel.addEventListener("mouseleave", startAutoAdvance);
+  resellerCarousel.addEventListener("focusin", stopAutoAdvance);
+  resellerCarousel.addEventListener("focusout", (event) => {
+    const nextFocusTarget = event.relatedTarget;
+
+    if (
+      !(nextFocusTarget instanceof Node) ||
+      !resellerCarousel.contains(nextFocusTarget)
+    ) {
+      startAutoAdvance();
+    }
+  });
+  window.addEventListener("resize", handleResellerResize);
+
+  if (typeof reducedMotionQuery.addEventListener === "function") {
+    reducedMotionQuery.addEventListener("change", handleResellerResize);
+  } else {
+    reducedMotionQuery.addListener(handleResellerResize);
+  }
+
+  renderReseller(0);
+  startAutoAdvance();
 }
