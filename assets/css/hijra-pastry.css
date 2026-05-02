@@ -620,6 +620,7 @@ nav {
 }
 .reseller-store-viewport {
   min-width: 0;
+  touch-action: pan-y pinch-zoom;
 }
 .reseller-store-grid {
   display: grid;
@@ -632,7 +633,7 @@ nav {
 .reseller-store-carousel.is-ready .reseller-store-grid {
   display: flex;
   flex-wrap: nowrap;
-  transition: transform 0.45s ease;
+  transition: transform 0.3s ease;
   will-change: transform;
 }
 .reseller-store-card {

@@ -11,6 +11,7 @@ const testimonialDots = [
   ...document.querySelectorAll("[data-testimonial-dot]"),
 ];
 const resellerCarousel = document.querySelector("[data-reseller-carousel]");
+const resellerViewport = document.querySelector(".reseller-store-viewport");
 const resellerTrack = document.querySelector("[data-reseller-track]");
 const resellerDotsContainer = document.querySelector("[data-reseller-dots]");
 
@@ -164,15 +165,27 @@ if (testimonialTrack && testimonialDots.length) {
   renderTestimonial(0);
 }
 
-if (resellerCarousel && resellerTrack && resellerDotsContainer) {
+if (
+  resellerCarousel &&
+  resellerViewport &&
+  resellerTrack &&
+  resellerDotsContainer
+) {
   const cards = [...resellerTrack.querySelectorAll(".reseller-store-card")];
   const reducedMotionQuery = window.matchMedia(
     "(prefers-reduced-motion: reduce)",
   );
+  const swipeThreshold = 36;
 
   let resellerDots = [];
   let currentStoreIndex = 0;
   let autoAdvanceId = 0;
+  let pointerStartX = 0;
+  let pointerStartY = 0;
+  let pointerDeltaX = 0;
+  let pointerDeltaY = 0;
+  let activePointerId = null;
+  let isPointerDragging = false;
 
   const getVisibleStoreCount = () => {
     if (window.matchMedia("(max-width: 640px)").matches) {
@@ -196,6 +209,15 @@ if (resellerCarousel && resellerTrack && resellerDotsContainer) {
 
     window.clearInterval(autoAdvanceId);
     autoAdvanceId = 0;
+  };
+
+  const resetSwipeState = () => {
+    pointerStartX = 0;
+    pointerStartY = 0;
+    pointerDeltaX = 0;
+    pointerDeltaY = 0;
+    activePointerId = null;
+    isPointerDragging = false;
   };
 
   const renderResellerDots = () => {
@@ -269,7 +291,7 @@ if (resellerCarousel && resellerTrack && resellerDotsContainer) {
         currentStoreIndex >= maxStoreIndex ? 0 : currentStoreIndex + 1;
 
       renderReseller(nextIndex);
-    }, 2800);
+    }, 1800);
   };
 
   const handleResellerResize = () => {
@@ -292,6 +314,55 @@ if (resellerCarousel && resellerTrack && resellerDotsContainer) {
       startAutoAdvance();
     }
   });
+
+  resellerViewport.addEventListener("pointerdown", (event) => {
+    if (!event.isPrimary) {
+      return;
+    }
+
+    resellerViewport.setPointerCapture?.(event.pointerId);
+    activePointerId = event.pointerId;
+    pointerStartX = event.clientX;
+    pointerStartY = event.clientY;
+    pointerDeltaX = 0;
+    pointerDeltaY = 0;
+    isPointerDragging = true;
+    stopAutoAdvance();
+  });
+
+  resellerViewport.addEventListener("pointermove", (event) => {
+    if (!isPointerDragging || event.pointerId !== activePointerId) {
+      return;
+    }
+
+    pointerDeltaX = event.clientX - pointerStartX;
+    pointerDeltaY = event.clientY - pointerStartY;
+  });
+
+  const finishSwipe = (event) => {
+    if (!isPointerDragging || event.pointerId !== activePointerId) {
+      return;
+    }
+
+    resellerViewport.releasePointerCapture?.(event.pointerId);
+
+    if (
+      Math.abs(pointerDeltaX) > Math.abs(pointerDeltaY) &&
+      Math.abs(pointerDeltaX) > swipeThreshold
+    ) {
+      if (pointerDeltaX < 0) {
+        renderReseller(currentStoreIndex + 1);
+      } else {
+        renderReseller(currentStoreIndex - 1);
+      }
+    }
+
+    resetSwipeState();
+    startAutoAdvance();
+  };
+
+  resellerViewport.addEventListener("pointerup", finishSwipe);
+  resellerViewport.addEventListener("pointercancel", finishSwipe);
   window.addEventListener("resize", handleResellerResize);
 
   if (typeof reducedMotionQuery.addEventListener === "function") {
